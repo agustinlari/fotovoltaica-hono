@@ -46,4 +46,16 @@ export const usuarios = pgTable('usuarios', {
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
 
+export const archivos = pgTable('archivos', {
+  id: bigint('id', { mode: 'number' }).primaryKey().notNull().generatedAlwaysAsIdentity(),
+  filename: text('filename').notNull(),
+  original_name: text('original_name').notNull(),
+  mime_type: text('mime_type').notNull(),
+  size: bigint('size', { mode: 'number' }).notNull(),
+  table_name: text('table_name').notNull(), // 'camiones', 'estructura', 'pallets'
+  record_id: text('record_id').notNull(), // ID del registro asociado
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+});
+
 
