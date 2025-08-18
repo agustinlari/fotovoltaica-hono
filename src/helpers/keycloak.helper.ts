@@ -1,5 +1,5 @@
 import * as jose from 'jose';
-import { KEYCLOAK_CERTS_URL, KEYCLOAK_USERINFO_URL } from '../config/env';
+import { KEYCLOAK_CERTS_URL, KEYCLOAK_USERINFO_URL } from '../config/env.js';
 
 // Cache para las claves públicas de Keycloak
 let keycloakJWKS: jose.JSONWebKeySet | null = null;
@@ -125,4 +125,28 @@ export async function validateAuthToken(token: string): Promise<any> {
   }
   
   return await validateKeycloakToken(token);
+}
+
+/**
+ * Obtiene el ID del usuario desde el header Authorization
+ */
+export async function getUserIdFromRequest(authHeader: string | undefined): Promise<string | null> {
+  try {
+    const token = extractTokenFromHeader(authHeader);
+    if (!token) return null;
+    
+    // Si es token de desarrollo
+    if (token.startsWith('dev-token-')) {
+      const encodedData = token.replace('dev-token-', '');
+      const decoded = JSON.parse(Buffer.from(encodedData, 'base64').toString());
+      return decoded.sub || null;
+    }
+    
+    // Para tokens reales de Keycloak
+    const payload = await validateKeycloakToken(token);
+    return payload.sub || null;
+  } catch (error) {
+    console.error('Error obteniendo usuario del token:', error);
+    return null;
+  }
 }

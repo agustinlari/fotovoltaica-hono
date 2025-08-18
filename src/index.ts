@@ -2,11 +2,12 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { cors } from 'hono/cors';
 import { z } from 'zod';
-import { db } from './db/client';
-import { camiones, estructura, pallets, paneles, archivos } from './db/schema';
+import { db } from './db/client.js';
+import { camiones, estructura, pallets, paneles, archivos, usuarios } from './db/schema.js';
 import { and, eq } from 'drizzle-orm';
-import { keycloakAuthRoutes } from './helpers/keycloak-auth.helper';
-import { PORT } from './config/env';
+import { keycloakAuthRoutes } from './helpers/keycloak-auth.helper.js';
+import { getUserIdFromRequest } from './helpers/keycloak.helper.js';
+import { PORT } from './config/env.js';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
@@ -64,6 +65,14 @@ app.route('/', keycloakAuthRoutes);
 
 app.get('/health', (c) => c.json({ ok: true }));
 
+// Usuarios
+app.get('/usuarios/:keycloakId', async (c) => {
+  const keycloakId = c.req.param('keycloakId');
+  const [usuario] = await db.select().from(usuarios).where(eq(usuarios.keycloak_id, keycloakId));
+  if (!usuario) return c.notFound();
+  return c.json(usuario);
+});
+
 // Camiones
 app.get('/camiones', async (c) => {
   const rows = await db.select().from(camiones).orderBy(camiones.id);
@@ -78,6 +87,9 @@ app.get('/camiones/:id', async (c) => {
 app.post('/camiones', async (c) => {
   const body = await c.req.json();
   
+  // Obtener usuario actual
+  const userId = await getUserIdFromRequest(c.req.header('Authorization'));
+  
   // Convertir fechas ISO string a Date si es necesario
   const dateFields = ['FechaDescarga', 'updated_at', 'created_at'];
   dateFields.forEach(field => {
@@ -86,13 +98,23 @@ app.post('/camiones', async (c) => {
     }
   });
   
-  const [newCamion] = await db.insert(camiones).values(body).returning();
+  // Agregar información de auditoría
+  const dataToInsert = {
+    ...body,
+    updated_at: new Date(),
+    updated_by: userId
+  };
+  
+  const [newCamion] = await db.insert(camiones).values(dataToInsert).returning();
   return c.json(newCamion, 201);
 });
 app.put('/camiones/:id', async (c) => {
   const id = Number(c.req.param('id'));
   const body = await c.req.json();
   
+  // Obtener usuario actual
+  const userId = await getUserIdFromRequest(c.req.header('Authorization'));
+  
   // Convertir fechas ISO string a Date si es necesario
   const dateFields = ['FechaDescarga', 'updated_at', 'created_at'];
   dateFields.forEach(field => {
@@ -101,7 +123,14 @@ app.put('/camiones/:id', async (c) => {
     }
   });
   
-  await db.update(camiones).set(body).where(eq(camiones.id, id));
+  // Agregar información de auditoría
+  const dataToUpdate = {
+    ...body,
+    updated_at: new Date(),
+    updated_by: userId
+  };
+  
+  await db.update(camiones).set(dataToUpdate).where(eq(camiones.id, id));
   return c.json({ ok: true });
 });
 app.delete('/camiones/:id', async (c) => {
@@ -124,30 +153,50 @@ app.get('/estructura/:id', async (c) => {
 app.post('/estructura', async (c) => {
   const body = await c.req.json();
   
+  // Obtener usuario actual
+  const userId = await getUserIdFromRequest(c.req.header('Authorization'));
+  
   // Convertir fechas ISO string a Date si es necesario
-  const dateFields = ['FechaDescarga', 'updated_at', 'created_at'];
+  const dateFields = ['FechaDescarga', 'modified_at', 'created_at'];
   dateFields.forEach(field => {
     if (body[field] && typeof body[field] === 'string') {
       body[field] = new Date(body[field]);
     }
   });
   
-  const [newEstructura] = await db.insert(estructura).values(body).returning();
+  // Agregar información de auditoría
+  const dataToInsert = {
+    ...body,
+    modified_at: new Date(),
+    modified_by: userId
+  };
+  
+  const [newEstructura] = await db.insert(estructura).values(dataToInsert).returning();
   return c.json(newEstructura, 201);
 });
 app.put('/estructura/:id', async (c) => {
   const id = Number(c.req.param('id'));
   const body = await c.req.json();
   
+  // Obtener usuario actual
+  const userId = await getUserIdFromRequest(c.req.header('Authorization'));
+  
   // Convertir fechas ISO string a Date si es necesario
-  const dateFields = ['FechaDescarga', 'updated_at', 'created_at'];
+  const dateFields = ['FechaDescarga', 'modified_at', 'created_at'];
   dateFields.forEach(field => {
     if (body[field] && typeof body[field] === 'string') {
       body[field] = new Date(body[field]);
     }
   });
   
-  await db.update(estructura).set(body).where(eq(estructura.id, id));
+  // Agregar información de auditoría
+  const dataToUpdate = {
+    ...body,
+    modified_at: new Date(),
+    modified_by: userId
+  };
+  
+  await db.update(estructura).set(dataToUpdate).where(eq(estructura.id, id));
   return c.json({ ok: true });
 });
 app.delete('/estructura/:id', async (c) => {
@@ -169,13 +218,35 @@ app.get('/pallets/:id', async (c) => {
 });
 app.post('/pallets', async (c) => {
   const body = await c.req.json();
-  const [newPallet] = await db.insert(pallets).values(body).returning();
+  
+  // Obtener usuario actual
+  const userId = await getUserIdFromRequest(c.req.header('Authorization'));
+  
+  // Agregar información de auditoría
+  const dataToInsert = {
+    ...body,
+    updated_at: new Date(),
+    updated_by: userId
+  };
+  
+  const [newPallet] = await db.insert(pallets).values(dataToInsert).returning();
   return c.json(newPallet, 201);
 });
 app.put('/pallets/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json();
-  await db.update(pallets).set(body).where(eq(pallets.id, id));
+  
+  // Obtener usuario actual
+  const userId = await getUserIdFromRequest(c.req.header('Authorization'));
+  
+  // Agregar información de auditoría
+  const dataToUpdate = {
+    ...body,
+    updated_at: new Date(),
+    updated_by: userId
+  };
+  
+  await db.update(pallets).set(dataToUpdate).where(eq(pallets.id, id));
   return c.json({ ok: true });
 });
 app.delete('/pallets/:id', async (c) => {

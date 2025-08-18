@@ -7,10 +7,10 @@ import {
   KEYCLOAK_TOKEN_URL,
   KEYCLOAK_USERINFO_URL,
   ENABLE_DEV_AUTH
-} from '../config/env';
-import { validateKeycloakToken, getKeycloakUserInfo } from './keycloak.helper';
-import { db } from '../db/client';
-import { usuarios } from '../db/schema';
+} from '../config/env.js';
+import { validateKeycloakToken, getKeycloakUserInfo } from './keycloak.helper.js';
+import { db } from '../db/client.js';
+import { usuarios } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 
 // ================================

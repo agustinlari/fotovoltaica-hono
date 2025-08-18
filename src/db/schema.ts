@@ -10,6 +10,7 @@ export const camiones = pgTable('Camiones', {
   Albaran: text('Albaran'),
   NombreConductor: text('NombreConductor'),
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  updated_by: text('updated_by'), // Keycloak ID del usuario que actualizó
 });
 
 export const estructura = pgTable('Estructura', {
@@ -21,6 +22,7 @@ export const estructura = pgTable('Estructura', {
   PackingList: text('PackingList'),
   Albaran: text('Albaran'),
   modified_at: timestamp('modified_at', { withTimezone: true }).defaultNow(),
+  modified_by: text('modified_by'), // Keycloak ID del usuario que actualizó
   FechaDescarga: timestamp('FechaDescarga', { withTimezone: true }),
 });
 
@@ -29,6 +31,7 @@ export const pallets = pgTable('Pallets', {
   Descarga: bigint('Descarga', { mode: 'number' }),
   Defecto: boolean('Defecto'),
   updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  updated_by: text('updated_by'), // Keycloak ID del usuario que actualizó
 });
 
 export const paneles = pgTable('Paneles', {
