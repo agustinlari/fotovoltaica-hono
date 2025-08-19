@@ -26,36 +26,46 @@ class KeycloakAuthService {
       console.log('🔧 [DEV MODE] Simulando autenticación para:', username);
       
       // Validar credenciales básicas en modo desarrollo
+      let mockKeycloakUser;
+      
       if (username === 'agustin.lago@osmos.es' && password === 'Osmos2025') {
-        const mockKeycloakUser = {
+        mockKeycloakUser = {
           sub: 'dev-user-123',
           email: username,
           name: 'Agustín Lago (Dev)',
           preferred_username: username,
           realm_access: { roles: ['user', 'admin'] }
         };
-
-        const appUser = await this.getOrCreateUser(mockKeycloakUser);
-        
-        // Generar un token JWT simple para desarrollo
-        const mockToken = Buffer.from(JSON.stringify({
-          sub: mockKeycloakUser.sub,
-          email: mockKeycloakUser.email,
-          exp: Math.floor(Date.now() / 1000) + 3600, // 1 hora
-          iat: Math.floor(Date.now() / 1000)
-        })).toString('base64');
-
-        return {
-          success: true,
-          access_token: `dev-token-${mockToken}`,
-          refresh_token: `dev-refresh-${mockToken}`,
-          expires_in: 3600,
-          user: appUser,
-          keycloak_user: mockKeycloakUser
+      } else if (username === 'beatriz.rodriguez@osmos.es' && password === 'osmos') {
+        mockKeycloakUser = {
+          sub: 'dev-user-beatriz',
+          email: username,
+          name: 'Beatriz Rodríguez (Dev)',
+          preferred_username: username,
+          realm_access: { roles: ['user'] }
         };
       } else {
         throw new Error('Credenciales inválidas (Modo desarrollo)');
       }
+
+      const appUser = await this.getOrCreateUser(mockKeycloakUser);
+      
+      // Generar un token JWT simple para desarrollo
+      const mockToken = Buffer.from(JSON.stringify({
+        sub: mockKeycloakUser.sub,
+        email: mockKeycloakUser.email,
+        exp: Math.floor(Date.now() / 1000) + 3600, // 1 hora
+        iat: Math.floor(Date.now() / 1000)
+      })).toString('base64');
+
+      return {
+        success: true,
+        access_token: `dev-token-${mockToken}`,
+        refresh_token: `dev-refresh-${mockToken}`,
+        expires_in: 3600,
+        user: appUser,
+        keycloak_user: mockKeycloakUser
+      };
     }
 
     try {
@@ -170,21 +180,41 @@ class KeycloakAuthService {
       if (ENABLE_DEV_AUTH && accessToken.startsWith('dev-token-')) {
         console.log('🔧 [DEV MODE] Validando token de desarrollo');
         
-        const mockKeycloakUser = {
-          sub: 'dev-user-123',
-          email: 'agustin.lago@osmos.es',
-          name: 'Agustín Lago (Dev)',
-          preferred_username: 'agustin.lago@osmos.es',
-          realm_access: { roles: ['user', 'admin'] }
-        };
+        // Decodificar el token para obtener el usuario
+        try {
+          const tokenPayload = JSON.parse(Buffer.from(accessToken.replace('dev-token-', ''), 'base64').toString());
+          
+          let mockKeycloakUser;
+          if (tokenPayload.sub === 'dev-user-123') {
+            mockKeycloakUser = {
+              sub: 'dev-user-123',
+              email: 'agustin.lago@osmos.es',
+              name: 'Agustín Lago (Dev)',
+              preferred_username: 'agustin.lago@osmos.es',
+              realm_access: { roles: ['user', 'admin'] }
+            };
+          } else if (tokenPayload.sub === 'dev-user-beatriz') {
+            mockKeycloakUser = {
+              sub: 'dev-user-beatriz',
+              email: 'beatriz.rodriguez@osmos.es',
+              name: 'Beatriz Rodríguez (Dev)',
+              preferred_username: 'beatriz.rodriguez@osmos.es',
+              realm_access: { roles: ['user'] }
+            };
+          } else {
+            throw new Error('Token de desarrollo inválido');
+          }
 
-        const appUser = await this.getOrCreateUser(mockKeycloakUser);
+          const appUser = await this.getOrCreateUser(mockKeycloakUser);
 
-        return {
-          success: true,
-          user: appUser,
-          keycloak_user: mockKeycloakUser
-        };
+          return {
+            success: true,
+            user: appUser,
+            keycloak_user: mockKeycloakUser
+          };
+        } catch (error) {
+          throw new Error('Token de desarrollo malformado');
+        }
       }
 
       const keycloakUser = await validateKeycloakToken(accessToken);
